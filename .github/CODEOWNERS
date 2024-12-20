@@ -1,0 +1,26 @@
+# Defines code ownership and required reviewers for different components
+# Most specific patterns are listed first for proper precedence
+
+# Security sensitive paths requiring security team review and multiple approvers
+src/backend/src/security/* @security-team @project-leads
+.github/workflows/* @devops-team @security-team
+src/backend/src/config/* @devops-team @security-team
+
+# Core backend components
+src/backend/src/api/* @api-team
+src/backend/src/ocr/* @ocr-team
+src/backend/src/scraping/* @scraping-team
+src/backend/src/db/* @data-team
+src/backend/src/monitoring/* @devops-team
+src/backend/src/storage/* @storage-team
+src/backend/src/tasks/* @task-team
+
+# Test suites
+src/backend/tests/* @qa-team
+
+# Infrastructure and deployment
+infrastructure/* @devops-team
+infrastructure/monitoring/* @devops-team @monitoring-team
+
+# Global fallback - requires project lead review if no specific rule matches
+* @project-leads
