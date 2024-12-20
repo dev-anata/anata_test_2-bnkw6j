@@ -1,0 +1,152 @@
+version: "3.8"
+
+services:
+  # API Service - FastAPI application handling REST endpoints
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: final
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app
+      - tmp_data:/tmp/app
+    environment:
+      - APP_ENV=development
+      - DEBUG=true
+      - PORT=8000
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/config/service-account.json
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_EMULATOR_HOST=gcp-emulators:8085
+      - PUBSUB_EMULATOR_HOST=gcp-emulators:8086
+    depends_on:
+      redis:
+        condition: service_healthy
+      gcp-emulators:
+        condition: service_started
+    command: uvicorn api.server:app --host 0.0.0.0 --port 8000 --reload --workers 2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/liveness"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    networks:
+      - app-network
+
+  # Worker Service - Background task processing
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: final
+    volumes:
+      - ./:/app
+      - tmp_data:/tmp/app
+    environment:
+      - APP_ENV=development
+      - WORKER_CONCURRENCY=10
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_EMULATOR_HOST=gcp-emulators:8085
+      - PUBSUB_EMULATOR_HOST=gcp-emulators:8086
+    depends_on:
+      redis:
+        condition: service_healthy
+      gcp-emulators:
+        condition: service_started
+    command: python -m tasks.worker
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    networks:
+      - app-network
+
+  # Scheduler Service - Task scheduling and management
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: final
+    volumes:
+      - ./:/app
+      - tmp_data:/tmp/app
+    environment:
+      - APP_ENV=development
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_EMULATOR_HOST=gcp-emulators:8085
+      - PUBSUB_EMULATOR_HOST=gcp-emulators:8086
+    depends_on:
+      redis:
+        condition: service_healthy
+      gcp-emulators:
+        condition: service_started
+    command: python -m tasks.scheduler
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - app-network
+
+  # Redis Cache - Task metadata and rate limiting
+  redis:
+    image: redis:7.0-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 768M
+    networks:
+      - app-network
+
+  # GCP Emulators - Local development services
+  gcp-emulators:
+    image: google/cloud-sdk:latest
+    ports:
+      - "8085:8085"  # Storage emulator
+      - "8086:8086"  # Pub/Sub emulator
+    environment:
+      - STORAGE_EMULATOR_HOST=0.0.0.0:8085
+      - PUBSUB_EMULATOR_HOST=0.0.0.0:8086
+    command: >
+      sh -c "
+        gcloud beta emulators pubsub start --host-port=0.0.0.0:8086 &
+        gcloud beta emulators storage start --host-port=0.0.0.0:8085
+      "
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    networks:
+      - app-network
+
+volumes:
+  redis_data:
+    name: pipeline_redis_data
+  tmp_data:
+    name: pipeline_tmp_data
+
+networks:
+  app-network:
+    driver: bridge
+    name: pipeline_network
