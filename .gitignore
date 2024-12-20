@@ -1,0 +1,139 @@
+.git/
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+
+# Testing and Coverage
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.tox/
+
+# IDE and Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.settings/
+.classpath
+
+# System Files
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp
+*.temp
+
+# Infrastructure
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraformrc
+terraform.rc
+*.tfvars
+
+# Container
+.docker/
+docker-compose.override.yml
+*.dockerignore
+
+# Cloud Provider
+.gcloud/
+.aws/
+credentials.json
+*.config
+service-account.json
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+kube.config
+
+# Logs
+*.log
+logs/
+log/
+*.logs
+
+# Security
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+.ssh/
+.gnupg/
+*.keystore
+*.jks
+secrets/
+credentials/
+
+# Build and Dependencies
+node_modules/
+yarn.lock
+package-lock.json
+poetry.lock
+Pipfile.lock
+
+# Documentation
+_build/
+.sphinx-build/
+docs/_build/
+
+# Temporary Files
+*.swp
+*.swo
+*~
+.temp/
+tmp/
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+*.sql
+
+# Compiled files
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.pyc
+
+# Packaging
+*.tar
+*.gz
+*.zip
+*.rar
+*.7z
+
+# Media and Generated Content
+media/
+static/
+*.min.js
+*.min.css
+generated/
+dist/
