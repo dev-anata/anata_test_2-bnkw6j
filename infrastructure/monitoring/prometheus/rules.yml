@@ -1,0 +1,137 @@
+# Prometheus Recording and Alerting Rules
+# Version: 2.45.0
+# Purpose: Defines monitoring rules for the Data Processing Pipeline system
+
+groups:
+  # API Service Level Objective Rules
+  - name: api_slo_rules
+    rules:
+      # Record 95th percentile of API request duration
+      - record: api:request_duration_seconds:p95
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="api"}[5m])) by (le))
+        labels:
+          service: api
+      
+      # Alert on high API latency (>500ms)
+      - alert: APIHighLatency
+        expr: api:request_duration_seconds:p95 > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: API p95 latency above 500ms
+          description: API 95th percentile latency is {{ $value }}s for 5m
+
+  # Task Processing Performance Rules
+  - name: task_processing_rules
+    rules:
+      # Record average task processing duration
+      - record: task:processing_duration_seconds:avg
+        expr: rate(task_processing_duration_seconds_sum{job="worker"}[5m]) / rate(task_processing_duration_seconds_count{job="worker"}[5m])
+        labels:
+          service: worker
+      
+      # Alert on task processing delays (>5min)
+      - alert: TaskProcessingDelay
+        expr: task:processing_duration_seconds:avg > 300
+        for: 10m
+        labels:
+          severity: warning
+          service: worker
+        annotations:
+          summary: Task processing taking longer than 5 minutes
+          description: Average task processing time is {{ $value }}s
+
+  # Storage Performance Rules
+  - name: storage_performance_rules
+    rules:
+      # Record storage I/O throughput
+      - record: storage:io_bytes:rate5m
+        expr: rate(storage_io_bytes_total{job="storage"}[5m])
+        labels:
+          service: storage
+      
+      # Alert on low storage throughput (<50MB/s)
+      - alert: StorageLowThroughput
+        expr: storage:io_bytes:rate5m < 52428800  # 50MB in bytes
+        for: 5m
+        labels:
+          severity: warning
+          service: storage
+        annotations:
+          summary: Storage I/O below 50MB/s
+          description: Storage throughput is {{ $value | humanize }}B/s
+
+  # Service Availability Rules
+  - name: availability_rules
+    rules:
+      # Record service availability ratio
+      - record: service:availability:ratio
+        expr: avg_over_time(up{job=~"api|worker|storage"}[24h])
+        labels:
+          metric: availability
+      
+      # Alert on service availability below 99.9%
+      - alert: ServiceUnavailable
+        expr: service:availability:ratio < 0.999
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Service availability below 99.9%
+          description: Service {{ $labels.job }} availability is {{ $value | humanizePercentage }}
+
+  # Error Rate Rules
+  - name: error_rate_rules
+    rules:
+      # Record service error rates
+      - record: service:error_rate:ratio
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) by (job) / sum(rate(http_requests_total[5m])) by (job)
+        labels:
+          metric: error_rate
+      
+      # Alert on high error rates (>1%)
+      - alert: HighErrorRate
+        expr: service:error_rate:ratio > 0.01
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: High error rate detected
+          description: Service {{ $labels.job }} error rate is {{ $value | humanizePercentage }}
+
+  # Resource Utilization Rules
+  - name: resource_utilization_rules
+    rules:
+      # Record CPU utilization
+      - record: instance:cpu_utilization:ratio
+        expr: 1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) by (instance)
+        labels:
+          metric: cpu_usage
+      
+      # Record memory utilization
+      - record: instance:memory_utilization:ratio
+        expr: 1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)
+        labels:
+          metric: memory_usage
+      
+      # Alert on high CPU usage (>80%)
+      - alert: HighCPUUsage
+        expr: instance:cpu_utilization:ratio > 0.8
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: High CPU utilization
+          description: Instance {{ $labels.instance }} CPU usage is {{ $value | humanizePercentage }}
+      
+      # Alert on high memory usage (>80%)
+      - alert: HighMemoryUsage
+        expr: instance:memory_utilization:ratio > 0.8
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: High memory utilization
+          description: Instance {{ $labels.instance }} memory usage is {{ $value | humanizePercentage }}
