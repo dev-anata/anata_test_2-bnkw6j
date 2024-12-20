@@ -1,0 +1,63 @@
+# Kustomize configuration for development environment overlay
+# Version: v5.0.0+
+# Purpose: Customizes base Kubernetes resources for development-specific settings
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Metadata for the development environment overlay
+metadata:
+  name: data-processing-pipeline-dev
+
+# Target namespace for all resources
+namespace: data-processing-pipeline-dev
+
+# Reference to base resources
+resources:
+  - ../../base
+
+# Apply development-specific patches
+patches:
+  - patch-replicas.yaml
+
+# Generate development environment ConfigMap
+configMapGenerator:
+  - name: app-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      - API_DEBUG=true
+
+# Development-specific image tags
+images:
+  - name: gcr.io/data-processing-api
+    newTag: dev
+  - name: gcr.io/data-processing-worker
+    newTag: dev
+
+# Common labels for all resources
+commonLabels:
+  environment: development
+  managed-by: kustomize
+
+# Resource customizations for development environment
+# Following Technical Specifications section 8.1 for development environment:
+# - Single region deployment (us-central1)
+# - Minimal redundancy
+# - Development-sized instances
+commonAnnotations:
+  region: us-central1
+  profile: development
+  debug.pipeline/enabled: "true"
+  monitoring.pipeline/level: detailed
+
+# Vars for cross-resource references
+vars:
+  - name: ENVIRONMENT
+    objref:
+      kind: ConfigMap
+      name: app-config
+      apiVersion: v1
+    fieldref:
+      fieldpath: data.ENVIRONMENT
