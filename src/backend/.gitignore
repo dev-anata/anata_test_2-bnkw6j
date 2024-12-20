@@ -1,0 +1,140 @@
+# Python bytecode and compiled files
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+*.so
+
+# Distribution and build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Environment and configuration files
+.env
+.env.*
+!.env.example
+*.local
+.python-version
+
+# Test and coverage artifacts
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
+
+# Type checking and linting
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Temporary and cache files
+tmp/
+*.tmp
+.debug/
+
+# Security-sensitive files
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+*.cer
+*.der
+*.priv
+*.pub
+
+# Dependency management
+poetry.lock
+node_modules/
+
+# Docker
+docker-compose.override.yml
+
+# Runtime files
+*.pid
+*.sock
+
+# Database files
+*.dump
+*.sqlite
+*.sqlite3
+*.db
+
+# Infrastructure as Code
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!example.tfvars
+
+# Ansible
+*.retry
+
+# Logs
+*.log
+logs/
+log/
+
+# Local development overrides
+override.yml
+*-override.yml
+*-local.*
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Debug artifacts
+.debug/
+debug/
+*.debug
+
+# Documentation build
+docs/_build/
+site/
+
+# Profiling data
+*.prof
+*.profile
+
+# Package manager specific
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environment markers
+.env.development
+.env.staging
+.env.production
+.env.test
+.env.local
+
+# Secrets and credentials
+credentials/
+secrets/
+*_credentials.json
+*_key.json
+service-account.json
+
+# Test data
+test/data/
+tests/data/
+testing/data/
