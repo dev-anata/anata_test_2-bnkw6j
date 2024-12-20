@@ -1,0 +1,101 @@
+# Grafana Prometheus Datasource Configuration v9.0.0+
+# Configures Prometheus as the primary metrics data source for monitoring system performance,
+# errors, and resource utilization with 15s scrape interval
+
+apiVersion: 1
+
+# Datasources configuration
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    version: 1
+    editable: true
+    
+    # JSON data configuration
+    jsonData:
+      # Scrape and query settings
+      timeInterval: "15s"  # Matches Prometheus scrape interval
+      queryTimeout: "30s"  # Maximum query execution time
+      httpMethod: "POST"   # HTTP method for queries
+      
+      # Alert management
+      manageAlerts: true   # Enable Grafana alert management
+      
+      # Prometheus specific settings
+      prometheusType: "Prometheus"
+      cacheLevel: "High"   # Optimize query caching
+      disableMetricsLookup: false
+      
+      # Trace correlation settings
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo  # Link to Tempo trace datasource
+    
+    # Secure data (API key stored in environment)
+    secureJsonData:
+      httpHeaderValue1: "${PROMETHEUS_API_KEY}"
+    
+    # Connection settings
+    basicAuth: false
+    withCredentials: false
+    
+    # Custom HTTP headers
+    jsonData:
+      httpHeaderName1: "X-API-Key"
+    
+    # Performance optimization settings
+    jsonData:
+      # Query performance settings
+      maxLines: 5000000            # Maximum lines to process
+      maxDataPoints: 5000000       # Maximum data points in response
+      
+      # Timeout configurations
+      timeoutInSeconds: 30         # Query timeout
+      connTimeout: 10              # Connection timeout
+      
+      # Cache settings
+      cacheTTL: 60                 # Cache time-to-live in seconds
+      
+      # Custom query parameters
+      customQueryParameters: 
+        max_samples: 5000000       # Maximum samples per query
+        timeout: "30s"             # Query execution timeout
+    
+    # Health check settings
+    jsonData:
+      alerting: true              # Enable alerting
+      healthCheck:
+        enabled: true             # Enable health checks
+        frequency: "60s"          # Health check frequency
+        timeout: "30s"            # Health check timeout
+        
+    # Metric collection settings
+    jsonData:
+      # Performance metrics
+      metrics:
+        - name: "api_latency"
+          interval: "15s"
+          timeout: "5s"
+        - name: "task_processing_time"
+          interval: "30s"
+          timeout: "5s"
+        - name: "storage_io"
+          interval: "15s"
+          timeout: "5s"
+        - name: "system_availability"
+          interval: "15s"
+          timeout: "5s"
+          
+      # Error monitoring
+      errorMetrics:
+        - name: "api_errors"
+          interval: "15s"
+        - name: "task_failures"
+          interval: "15s"
+        - name: "storage_errors"
+          interval: "15s"
+        - name: "system_errors"
+          interval: "15s"
