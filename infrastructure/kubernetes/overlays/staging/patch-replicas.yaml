@@ -1,0 +1,30 @@
+# Strategic merge patch for staging environment replica counts
+# Configures reduced capacity while maintaining production-like setup
+# Kubernetes API Version: apps/v1 1.24+
+
+# API Service Deployment Patch
+# Reduces replicas from 3 to 2 for staging workload
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  replicas: 2
+---
+# Worker Service Deployment Patch
+# Reduces replicas from 5 to 3 for staging processing capacity
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-deployment
+spec:
+  replicas: 3
+---
+# Scheduler Service Deployment Patch
+# Reduces replicas from 2 to 1 for staging coordination
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduler-deployment
+spec:
+  replicas: 1
