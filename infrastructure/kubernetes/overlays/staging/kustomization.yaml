@@ -1,0 +1,93 @@
+# Kustomize configuration for staging environment overlay
+# Version: v5.0.0+
+# Purpose: Customizes base Kubernetes resources for staging deployment with reduced capacity
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Staging environment namespace configuration
+namespace: data-processing-pipeline-staging
+namePrefix: staging-
+
+# Common labels for all resources in staging
+commonLabels:
+  environment: staging
+  managed-by: kustomize
+  region: us-central1
+  app: data-processing-pipeline
+
+# Common annotations for all resources in staging
+commonAnnotations:
+  environment: staging
+  contact: platform-team
+  tier: staging
+  deployment-region: us-central1
+  description: "Staging environment for Data Processing Pipeline"
+  version: "1.0.0"
+
+# Base resources to be customized
+resources:
+  - ../../base
+
+# Strategic merge patches for staging-specific customizations
+patchesStrategicMerge:
+  - patch-replicas.yaml
+
+# ConfigMap generation for staging environment
+configMapGenerator:
+  - name: app-config
+    behavior: merge
+    envs:
+      - staging.env
+    labels:
+      config-type: application
+      environment: staging
+
+# Secret generation for staging environment
+secretGenerator:
+  - name: app-secrets
+    behavior: merge
+    envs:
+      - staging-secrets.env
+    labels:
+      secret-type: application
+      environment: staging
+
+# Image tag customization for staging
+images:
+  - name: gcr.io/data-processing-api
+    newTag: staging
+  - name: gcr.io/data-processing-worker
+    newTag: staging
+
+# Resource configuration customizations
+vars:
+  - name: ENVIRONMENT
+    objref:
+      kind: ConfigMap
+      name: app-config
+      apiVersion: v1
+    fieldref:
+      fieldpath: data.ENVIRONMENT
+
+# Replicas and resource configurations are defined in patch-replicas.yaml
+# which is referenced above in patchesStrategicMerge
+
+# Labels to help with service discovery and monitoring
+commonLabels:
+  monitoring: enabled
+  backup: enabled
+  cost-center: staging-pipeline
+
+# Additional configurations for staging environment
+configurations:
+  - nameReference:
+      kind: ConfigMap
+      fieldSpecs:
+        - path: spec/template/spec/containers/*/envFrom/configMapRef/name
+          kind: Deployment
+  - nameReference:
+      kind: Secret
+      fieldSpecs:
+        - path: spec/template/spec/containers/*/envFrom/secretRef/name
+          kind: Deployment
