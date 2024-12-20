@@ -1,0 +1,74 @@
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Development environment
+.venv/
+.env*
+.vscode/
+.idea/
+requirements-dev.txt
+
+# Version control
+.git/
+.gitignore
+
+# Build and distribution
+*.egg-info/
+dist/
+build/
+
+# Docker files
+.dockerignore
+docker-compose*.yml
+
+# Documentation
+*.md
+
+# Test files
+tests/
+
+# Security-sensitive files
+**/*.key
+**/*.pem
+**/*.crt
+**/*.p12
+
+# Logs and temporary files
+*.log
+*.swp
+*.swo
+.DS_Store
+
+# Package metadata
+*.egg-info/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Development tools
+.mypy_cache/
+.pylintrc
+.flake8
+tox.ini
+.editorconfig
+
+# Local development configuration
+local_settings.py
+settings_local.py
+
+# Dependency management
+poetry.lock
+Pipfile.lock
+
+# Generated documentation
+docs/_build/
+docs/api/
+
+# Temporary and cache directories
+tmp/
+temp/
+.cache/
