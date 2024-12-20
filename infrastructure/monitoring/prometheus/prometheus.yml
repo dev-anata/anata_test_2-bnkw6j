@@ -1,0 +1,144 @@
+# Prometheus Configuration v2.45.0
+# Global configuration settings applied to all scrape targets
+global:
+  # Default interval between target scrapes
+  scrape_interval: 15s
+  # Default interval between rule evaluations
+  evaluation_interval: 15s
+  # Maximum time to wait for a scrape to complete
+  scrape_timeout: 10s
+  # Labels added to any time series or alerts
+  external_labels:
+    environment: ${ENV:prod}
+    cluster: data-pipeline
+    region: us-central1
+
+# Rule files containing recording and alerting rules
+rule_files:
+  - "rules.yml"
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+      timeout: 10s
+      api_version: v2
+
+# Scrape configurations for service discovery and metrics collection
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          component: monitoring
+  
+  # API Service monitoring
+  - job_name: api
+    metrics_path: /metrics
+    scrape_interval: 10s
+    scrape_timeout: 8s
+    static_configs:
+      - targets: ['api:8000']
+        labels:
+          service: api
+          component: service
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'go_.*'
+        action: drop
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        target_label: app
+  
+  # Worker Service monitoring
+  - job_name: worker
+    metrics_path: /metrics
+    scrape_interval: 10s
+    scrape_timeout: 8s
+    static_configs:
+      - targets: ['worker:8001']
+        labels:
+          service: worker
+          component: processor
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'go_.*'
+        action: drop
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        target_label: app
+  
+  # Storage Service monitoring
+  - job_name: storage
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 25s
+    static_configs:
+      - targets: ['storage:8002']
+        labels:
+          service: storage
+          component: persistence
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'go_.*'
+        action: drop
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        target_label: app
+
+# Storage configuration for time series data
+storage:
+  tsdb:
+    # Data retention period
+    retention_time: 15d
+    # Maximum storage size
+    retention_size: 50GB
+    # Enable WAL compression
+    wal_compression: true
+    # Directory for time series storage
+    path: /prometheus
+    # Maximum number of blocks to retain
+    max_block_duration: 24h
+
+# Web UI and API configuration
+web:
+  # Listen address for Prometheus web interface
+  listen_address: "0.0.0.0:9090"
+  # External URL for browser access
+  external_url: ${PROMETHEUS_EXTERNAL_URL}
+  # Maximum concurrent connections
+  max_connections: 512
+  # Read timeout for HTTP requests
+  read_timeout: 30s
+  # Maximum samples in a single query
+  max_samples: 5000000
+  # Enable compression for HTTP responses
+  enable_compression: true
+  # CORS configuration
+  cors:
+    enabled: true
+    allowed_origins: ['*']
+    max_age: 86400
+
+# Query configuration
+query:
+  # Maximum time range for queries
+  max_samples: 50000000
+  # Timeout for queries
+  timeout: 2m
+  # Maximum number of concurrent queries
+  max_concurrency: 20
+  # Maximum lookback duration
+  lookback_delta: 5m
+
+# Limits configuration
+limits:
+  # Maximum series in memory
+  max_series_per_metric: 100000
+  # Maximum label name length
+  max_label_name_length: 128
+  # Maximum label value length
+  max_label_value_length: 512
