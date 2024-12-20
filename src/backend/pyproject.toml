@@ -1,0 +1,88 @@
+[build-system]
+requires = ["poetry-core>=1.7.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "data-processing-pipeline"
+version = "1.0.0"
+description = "Cloud-based automation platform for web scraping and OCR data processing"
+authors = ["Development Team <team@example.com>"]
+license = "MIT"
+packages = [
+    { include = "src" }
+]
+
+[tool.poetry.dependencies]
+python = ">=3.11"
+fastapi = ">=0.100.0"
+uvicorn = ">=0.23.0"
+pydantic = ">=2.1.0"
+scrapy = ">=2.9.0"
+pytesseract = ">=0.3.0"
+google-cloud-storage = ">=2.10.0"
+google-cloud-pubsub = ">=2.18.0"
+google-cloud-firestore = ">=2.11.0"
+google-cloud-logging = ">=3.5.0"
+google-cloud-monitoring = ">=2.14.0"
+pandas = ">=2.0.0"
+numpy = ">=1.24.0"
+pillow = ">=10.0.0"
+python-jose = { version = ">=3.3.0", extras = ["cryptography"] }
+passlib = { version = ">=1.7.0", extras = ["bcrypt"] }
+prometheus-client = ">=0.17.0"
+opentelemetry-api = ">=1.19.0"
+structlog = ">=23.1.0"
+pyyaml = ">=6.0.0"
+click = ">=8.1.0"
+
+[tool.poetry.dev-dependencies]
+pytest = ">=7.4.0"
+pytest-asyncio = ">=0.21.0"
+pytest-cov = ">=4.1.0"
+pytest-mock = ">=3.11.0"
+black = ">=23.7.0"
+pylint = ">=2.17.0"
+mypy = ">=1.4.0"
+isort = ">=5.12.0"
+factory-boy = ">=3.3.0"
+faker = ">=19.2.0"
+debugpy = ">=1.6.0"
+ipython = ">=8.14.0"
+httpx = ">=0.24.0"
+
+[tool.poetry.scripts]
+start = "uvicorn src.api.server:app --reload"
+test = "pytest"
+lint = "pylint src tests"
+format = "black src tests"
+typecheck = "mypy src"
+coverage = "pytest --cov=src --cov-report=html"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+include = "src/|tests/"
+
+[tool.pylint]
+max-line-length = 100
+disable = [
+    "C0111",  # Missing docstring
+    "R0903",  # Too few public methods
+]
+ignore = ["tests/"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+exclude = ["tests/"]
+
+[tool.pytest]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=src --cov-report=term-missing"
+
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_output = 3
