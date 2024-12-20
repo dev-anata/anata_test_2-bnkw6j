@@ -1,0 +1,146 @@
+# Kubernetes Deployment configuration for Data Processing Pipeline API Service
+# Version: apps/v1
+# Purpose: Defines the deployment configuration for the API service including
+# container specifications, resource limits, health checks, and scaling parameters
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+  namespace: ${namespace}
+  labels:
+    app: data-processing-pipeline
+    component: api
+    version: ${tag}
+  annotations:
+    description: "API service deployment for Data Processing Pipeline"
+    kubernetes.io/change-cause: "Initial deployment of API service"
+
+spec:
+  # Minimum 3 replicas as per Technical Specifications/8.4.2
+  replicas: 3
+  
+  # Pod selector matching labels
+  selector:
+    matchLabels:
+      app: data-processing-pipeline
+      component: api
+
+  # Deployment strategy configuration
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1        # Maximum number of pods that can be created above desired replicas
+      maxUnavailable: 0  # Maximum number of pods that can be unavailable during update
+
+  # Pod template specification
+  template:
+    metadata:
+      labels:
+        app: data-processing-pipeline
+        component: api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+
+    spec:
+      # Container specifications
+      containers:
+      - name: api
+        image: gcr.io/${project_id}/data-processing-api:${tag}
+        imagePullPolicy: IfNotPresent
+        
+        # Container ports
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+
+        # Resource limits and requests as per performance requirements
+        resources:
+          requests:
+            cpu: "500m"     # 0.5 CPU cores requested
+            memory: "512Mi" # 512MB memory requested
+          limits:
+            cpu: "1000m"    # Maximum 1 CPU core
+            memory: "1Gi"   # Maximum 1GB memory
+
+        # Environment variables from ConfigMap and Secrets
+        envFrom:
+        - configMapRef:
+            name: app-config
+        - secretRef:
+            name: app-secrets
+
+        # Liveness probe for container health monitoring
+        livenessProbe:
+          httpGet:
+            path: /health/liveness
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+
+        # Readiness probe for service availability
+        readinessProbe:
+          httpGet:
+            path: /health/readiness
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+
+        # Security context for container
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+
+        # Volume mounts for temporary data
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+          readOnly: false
+
+      # Pod security context
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+
+      # Volumes definition
+      volumes:
+      - name: tmp
+        emptyDir: {}
+
+      # Pod termination grace period
+      terminationGracePeriodSeconds: 30
+
+      # Service account for pod
+      serviceAccountName: api-service-account
+
+      # Pod affinity rules for high availability
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: component
+                  operator: In
+                  values:
+                  - api
+              topologyKey: kubernetes.io/hostname
