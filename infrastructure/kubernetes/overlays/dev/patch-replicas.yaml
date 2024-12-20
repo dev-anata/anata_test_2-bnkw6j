@@ -1,0 +1,30 @@
+# Kustomize patch file for development environment replica counts
+# Version: v1.0.0
+# Purpose: Reduces replica counts for dev environment to optimize resource usage while maintaining basic functionality
+
+# Patch for API deployment - reduces from 3 to 1 replica for dev
+- target:
+    kind: Deployment
+    name: api-deployment
+  patch: |
+    - op: replace
+      path: /spec/replicas
+      value: 1
+
+# Patch for Worker deployment - reduces from 5 to 2 replicas for dev
+- target:
+    kind: Deployment
+    name: worker-deployment
+  patch: |
+    - op: replace
+      path: /spec/replicas
+      value: 2
+
+# Patch for Scheduler deployment - reduces from 2 to 1 replica for dev
+- target:
+    kind: Deployment 
+    name: scheduler-deployment
+  patch: |
+    - op: replace
+      path: /spec/replicas
+      value: 1
