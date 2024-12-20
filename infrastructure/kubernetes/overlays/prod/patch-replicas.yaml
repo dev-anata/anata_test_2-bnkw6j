@@ -1,0 +1,30 @@
+# Production replica count patch for Data Processing Pipeline deployments
+# Kustomize version: v5.0.0+
+# Purpose: Configure production-specific replica counts for high availability and performance
+
+# API Deployment patch
+# Increases replicas from 3 to 5 for improved availability and load handling
+- op: replace
+  path: /spec/replicas
+  target:
+    kind: Deployment
+    name: api-deployment
+  value: 5
+
+# Worker Deployment patch
+# Scales replicas from 5 to 10 for increased parallel processing capacity
+- op: replace
+  path: /spec/replicas
+  target:
+    kind: Deployment
+    name: worker-deployment
+  value: 10
+
+# Scheduler Deployment patch
+# Increases replicas from 2 to 3 for high availability and failover
+- op: replace
+  path: /spec/replicas
+  target:
+    kind: Deployment
+    name: scheduler-deployment
+  value: 3
