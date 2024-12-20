@@ -1,0 +1,143 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: 
+      - main
+      - develop
+    paths:
+      - 'src/backend/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'src/backend/**'
+
+env:
+  PYTHON_VERSION: '3.11'
+  COVERAGE_THRESHOLD: '80'
+  WORKING_DIRECTORY: './src/backend'
+
+# Prevent concurrent workflow runs on same ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  code_quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run black code formatter check
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: black --check src tests
+
+      - name: Run pylint code analysis
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: pylint src tests
+
+      - name: Run mypy type checking
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: mypy src
+
+  tests:
+    name: Unit and Integration Tests
+    needs: code_quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run tests with coverage
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          pytest \
+            --cov=src \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=${{ env.COVERAGE_THRESHOLD }}
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: ${{ env.WORKING_DIRECTORY }}/coverage.xml
+          retention-days: 7
+
+  security_scan:
+    name: Security Vulnerability Scan
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install safety
+        run: pip install safety
+
+      - name: Run dependency vulnerability scan
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: safety check -r requirements.txt
+
+      - name: Run bandit security scan
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          pip install bandit
+          bandit -r src -c pyproject.toml
