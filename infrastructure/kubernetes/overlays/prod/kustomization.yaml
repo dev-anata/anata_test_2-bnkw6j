@@ -1,0 +1,127 @@
+# Kustomize configuration for production environment overlay
+# Version: v5.0.0+
+# Purpose: Customizes base Kubernetes resources for production deployment with enhanced scaling, security, and reliability
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Production namespace configuration
+namespace: data-processing-pipeline-prod
+namePrefix: prod-
+
+# Common metadata for all resources
+commonLabels:
+  environment: production
+  managed-by: kustomize
+  app: data-processing-pipeline
+  tier: production
+
+commonAnnotations:
+  environment: production
+  contact: platform-team@company.com
+  deployment.kubernetes.io/revision: "1"
+  monitoring.enabled: "true"
+  backup.enabled: "true"
+
+# Base resources reference
+resources:
+  - ../../base
+
+# Production-specific patches
+patches:
+  - path: patch-replicas.yaml
+
+# Production ConfigMap generation
+configMapGenerator:
+  - name: app-config
+    behavior: merge
+    envs:
+      - prod.env
+
+# Production Secrets generation
+secretGenerator:
+  - name: app-secrets
+    behavior: merge
+    envs:
+      - prod-secrets.env
+
+# Production replica counts for high availability
+replicas:
+  - name: api-deployment
+    count: 5  # High availability for API service
+  - name: worker-deployment
+    count: 10 # Increased worker capacity for production load
+  - name: scheduler-deployment
+    count: 3  # Redundant schedulers for reliability
+
+# Resource transformers for production environment
+transformers:
+  - |-
+    apiVersion: builtin
+    kind: PrefixSuffixTransformer
+    metadata:
+      name: prefixer
+    prefix: prod-
+    fieldSpecs:
+      - path: metadata/name
+        kind: Deployment
+      - path: metadata/name
+        kind: Service
+      - path: metadata/name
+        kind: HorizontalPodAutoscaler
+
+# Production-specific configurations
+configurations:
+  - |-
+    apiVersion: builtin
+    kind: LabelTransformer
+    metadata:
+      name: labels
+    labels:
+      environment: production
+    fieldSpecs:
+      - path: metadata/labels
+        create: true
+      - path: spec/template/metadata/labels
+        create: true
+      - path: spec/selector/matchLabels
+        create: true
+
+# Production resource limits and requests
+patchesJson6902:
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: api-deployment
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "2"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "4Gi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "1"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "2Gi"
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: worker-deployment
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "4"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "8Gi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "2"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "4Gi"
