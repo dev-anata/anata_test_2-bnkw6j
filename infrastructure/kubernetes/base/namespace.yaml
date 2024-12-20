@@ -1,0 +1,25 @@
+# Kubernetes API version v1.24+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data-processing-pipeline
+  labels:
+    # Core application labels
+    app: data-processing-pipeline
+    managed-by: kustomize
+    environment: ${ENV}  # Placeholder for environment-specific overlay
+    
+    # Organizational labels
+    cost-center: platform-engineering
+    security-zone: restricted
+    
+  annotations:
+    # Application metadata
+    description: "Data Processing Pipeline application namespace"
+    team: "platform-engineering"
+    contact: "platform-team@company.com"
+    
+    # Operational metadata
+    backup-policy: "daily"
+    compliance-level: "high"
+    security-controls: "network-policies-enabled"
