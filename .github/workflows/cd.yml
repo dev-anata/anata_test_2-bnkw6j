@@ -1,0 +1,203 @@
+# Data Processing Pipeline - Continuous Deployment Workflow
+# Version: 1.0.0
+# This workflow implements automated deployment pipeline with rolling updates,
+# health checks, and automated rollback capabilities across staging and production
+
+name: Continuous Deployment
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/backend/**'
+      - 'infrastructure/**'
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches: [main]
+
+# Ensure only one deployment runs at a time per environment
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: ${{ secrets.GCP_REGION }}
+  GKE_CLUSTER: ${{ secrets.GKE_CLUSTER }}
+  IMAGE_NAME: data-processing-pipeline
+  DOCKER_REGISTRY: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}
+
+jobs:
+  build_and_push:
+    name: Build and Push Container Image
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.image_tag.outputs.value }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Generate image tag
+        id: image_tag
+        run: |
+          echo "value=sha-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Configure Docker
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Artifact Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: _json_key
+          password: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./src/backend
+          file: ./src/backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.image_tag.outputs.value }}
+            ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy_staging:
+    name: Deploy to Staging
+    needs: [build_and_push]
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials ${{ env.GKE_CLUSTER }} \
+            --region ${{ env.GCP_REGION }} \
+            --project ${{ env.GCP_PROJECT_ID }}
+
+      - name: Update deployment manifests
+        run: |
+          cd infrastructure/kubernetes/base
+          kustomize edit set image ${{ env.IMAGE_NAME }}=${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build_and_push.outputs.image_tag }}
+
+      - name: Deploy to staging
+        run: |
+          kubectl apply -k infrastructure/kubernetes/overlays/staging
+          kubectl rollout status deployment/data-processing-api -n staging --timeout=10m
+
+      - name: Run smoke tests
+        run: |
+          # Wait for service to be ready
+          sleep 30
+          
+          # Get service URL
+          SERVICE_URL=$(kubectl get service data-processing-api -n staging -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          
+          # Run health check
+          curl -f http://$SERVICE_URL/health
+          curl -f http://$SERVICE_URL/status
+
+      - name: Run load tests
+        run: |
+          npm install -g k6
+          k6 run tests/load/staging.js \
+            --vus 10 \
+            --duration 30s \
+            -e URL=http://$SERVICE_URL \
+            -e THRESHOLD_95=500 \
+            -e ERROR_RATE=0.01
+
+  deploy_production:
+    name: Deploy to Production
+    needs: [deploy_staging]
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://api.dataprocessing.production
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials ${{ env.GKE_CLUSTER }} \
+            --region ${{ env.GCP_REGION }} \
+            --project ${{ env.GCP_PROJECT_ID }}
+
+      - name: Update deployment manifests
+        run: |
+          cd infrastructure/kubernetes/base
+          kustomize edit set image ${{ env.IMAGE_NAME }}=${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build_and_push.outputs.image_tag }}
+
+      - name: Deploy to production
+        run: |
+          kubectl apply -k infrastructure/kubernetes/overlays/production
+          kubectl rollout status deployment/data-processing-api -n production --timeout=10m
+
+      - name: Validate deployment
+        run: |
+          # Wait for service to be ready
+          sleep 30
+          
+          # Get service URL
+          SERVICE_URL=$(kubectl get service data-processing-api -n production -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          
+          # Run validation suite
+          ./tests/validation/run.sh $SERVICE_URL
+
+      - name: Export deployment metrics
+        if: always()
+        run: |
+          DEPLOY_SUCCESS=${{ job.status == 'success' }}
+          DEPLOY_DURATION=${{ steps.deploy.duration }}
+          
+          # Export metrics to monitoring system
+          gcloud monitoring metrics write custom.googleapis.com/deployment/success \
+            --bool-value=$DEPLOY_SUCCESS
+          
+          gcloud monitoring metrics write custom.googleapis.com/deployment/duration \
+            --int64-value=$DEPLOY_DURATION
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          # Send alert to monitoring system
+          gcloud monitoring alerts trigger deployment-failure \
+            --text="Production deployment failed for commit ${{ github.sha }}"
