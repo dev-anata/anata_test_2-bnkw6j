@@ -1,0 +1,93 @@
+# HPA configuration for Data Processing Pipeline
+# Kubernetes version: 1.24+
+# Uses autoscaling/v2 API for advanced metrics support
+
+---
+# API Service HPA Configuration
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-hpa
+  namespace: ${namespace}
+  labels:
+    app: data-processing-pipeline
+    component: api
+    tier: frontend
+    managed-by: kustomize
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-deployment
+  minReplicas: 3  # Minimum replicas for high availability
+  maxReplicas: 10 # Maximum replicas for cost control
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70  # Scale when CPU utilization exceeds 70%
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 300  # 5-minute window to prevent thrashing
+      policies:
+        - type: Pods
+          value: 2  # Add up to 2 pods
+          periodSeconds: 60  # Per minute
+    scaleDown:
+      stabilizationWindowSeconds: 300  # 5-minute window before scaling down
+      policies:
+        - type: Pods
+          value: 1  # Remove 1 pod
+          periodSeconds: 120  # Every 2 minutes
+
+---
+# Worker Service HPA Configuration
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: worker-hpa
+  namespace: ${namespace}
+  labels:
+    app: data-processing-pipeline
+    component: worker
+    tier: backend
+    managed-by: kustomize
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker-deployment
+  minReplicas: 5  # Minimum replicas for processing capacity
+  maxReplicas: 20 # Maximum replicas for peak load handling
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70  # Scale on CPU utilization
+    - type: External
+      external:
+        metric:
+          name: pubsub.googleapis.com|subscription|num_undelivered_messages
+          selector:
+            matchLabels:
+              resource.labels.subscription_id: task-queue-subscription
+        target:
+          type: AverageValue
+          averageValue: "100"  # Scale when queue length exceeds 100 messages
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 180  # 3-minute window for faster scaling up
+      policies:
+        - type: Pods
+          value: 4  # Add up to 4 pods
+          periodSeconds: 60  # Per minute for queue processing
+    scaleDown:
+      stabilizationWindowSeconds: 300  # 5-minute window before scaling down
+      policies:
+        - type: Pods
+          value: 2  # Remove 2 pods
+          periodSeconds: 120  # Every 2 minutes
