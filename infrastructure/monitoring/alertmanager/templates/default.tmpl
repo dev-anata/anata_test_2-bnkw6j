@@ -1,0 +1,102 @@
+{{ define "email.default.subject" }}
+{{- .Status | toUpper }} [{{ .Labels.severity | toUpper }}] {{ .AlertName }} - {{ .Labels.service }}
+{{- end }}
+
+{{ define "email.default.html" }}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .alert-header { background-color: {{ if eq .Status "firing" }}#ff4444{{ else }}#44aa44{{ end }}; padding: 10px; color: white; }
+        .alert-section { margin: 15px 0; padding: 10px; border: 1px solid #ddd; }
+        .alert-label { font-weight: bold; }
+        .alert-value { margin-left: 10px; }
+        .alert-links { margin-top: 20px; }
+        .alert-link { color: #0066cc; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="alert-header">
+        <h2>{{ .Status | toUpper }} - {{ .AlertName }}</h2>
+    </div>
+
+    <div class="alert-section">
+        <h3>Alert Details</h3>
+        <p><span class="alert-label">Status:</span><span class="alert-value">{{ .Status }}</span></p>
+        <p><span class="alert-label">Severity:</span><span class="alert-value">{{ .Labels.severity }}</span></p>
+        <p><span class="alert-label">Service:</span><span class="alert-value">{{ .Labels.service }}</span></p>
+        <p><span class="alert-label">Component:</span><span class="alert-value">{{ .Labels.component }}</span></p>
+        <p><span class="alert-label">Instance:</span><span class="alert-value">{{ .Labels.instance }}</span></p>
+    </div>
+
+    <div class="alert-section">
+        <h3>Metric Information</h3>
+        <p><span class="alert-label">Description:</span><span class="alert-value">{{ .Annotations.description }}</span></p>
+        <p><span class="alert-label">Current Value:</span><span class="alert-value">{{ .Value }}</span></p>
+        <p><span class="alert-label">Threshold:</span><span class="alert-value">{{ .Annotations.threshold }}</span></p>
+        <p><span class="alert-label">Trend:</span><span class="alert-value">{{ .Annotations.metric_trend }}</span></p>
+    </div>
+
+    <div class="alert-section">
+        <h3>Timing Information</h3>
+        <p><span class="alert-label">Started:</span><span class="alert-value">{{ .StartsAt }}</span></p>
+        <p><span class="alert-label">Alert Group:</span><span class="alert-value">{{ .Labels.alertgroup }}</span></p>
+    </div>
+
+    <div class="alert-links">
+        <h3>Troubleshooting Resources</h3>
+        <p><a class="alert-link" href="{{ .Annotations.runbook_url }}">📚 Runbook</a></p>
+        <p><a class="alert-link" href="{{ .Annotations.dashboard_url }}">📊 Dashboard</a></p>
+        <p><a class="alert-link" href="{{ .Annotations.alert_history }}">📈 Alert History</a></p>
+    </div>
+</body>
+</html>
+{{ end }}
+
+{{ define "pagerduty.default.summary" }}
+[{{ .Status | toUpper }}][{{ .Labels.severity }}] {{ .AlertName }} - {{ .Labels.service }}
+{{ end }}
+
+{{ define "pagerduty.default.description" }}
+Severity: {{ .Labels.severity }}
+Service: {{ .Labels.service }}
+Component: {{ .Labels.component }}
+
+Description: {{ .Annotations.description }}
+
+Metric Details:
+- Current Value: {{ .Value }}
+- Threshold: {{ .Annotations.threshold }}
+- Trend: {{ .Annotations.metric_trend }}
+
+Started: {{ .StartsAt }}
+Deduplication Key: {{ .AlertName }}_{{ .Labels.service }}
+
+Links:
+- Runbook: {{ .Annotations.runbook_url }}
+- Dashboard: {{ .Annotations.dashboard_url }}
+{{ end }}
+
+{{ define "pagerduty.default.custom_details" }}
+{
+    "alert_group": "{{ .Labels.alertgroup }}",
+    "component": "{{ .Labels.component }}",
+    "instance": "{{ .Labels.instance }}",
+    "threshold": "{{ .Annotations.threshold }}",
+    "current_value": "{{ .Value }}",
+    "started_at": "{{ .StartsAt }}",
+    "status": "{{ .Status }}",
+    "severity": "{{ .Labels.severity }}"
+}
+{{ end }}
+
+{{/* Helper function to determine severity color */}}
+{{ define "severity_color" }}
+{{- if eq . "critical" -}}#ff0000
+{{- else if eq . "warning" -}}#ffa500
+{{- else if eq . "info" -}}#0000ff
+{{- else -}}#808080
+{{- end -}}
+{{ end }}
